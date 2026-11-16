@@ -8,7 +8,7 @@ using MiApi.Exceptions;
 using MiApi.Repositories;
 using Microsoft.AspNetCore.Http.HttpResults;
 
-namespace MiApi.Services.Book
+namespace MiApi.Services.BookService
 {
     public class BookService : IBookService
     {

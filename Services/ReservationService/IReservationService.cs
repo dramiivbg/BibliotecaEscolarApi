@@ -5,7 +5,7 @@ using System.Linq.Expressions;
 using MiApi.Dtos;
 
 
-namespace MiApi.Services.Reservation
+namespace MiApi.Services.ReservationService
 {
     public interface IReservationService
     {

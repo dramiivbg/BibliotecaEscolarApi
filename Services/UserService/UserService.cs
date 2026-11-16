@@ -5,12 +5,12 @@ using System.Text;
 using System.Threading.Tasks;
 using MiApi.Dtos;
 using MiApi.Repositories;
-using MiApi.Services.Email;
+using MiApi.Services.EmailService;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 
-namespace MiApi.Services.User
+namespace MiApi.Services.UserService
 {
     public class UserService : IUserService
     {

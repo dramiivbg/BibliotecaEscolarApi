@@ -5,7 +5,7 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using MiApi.Dtos;
 
-namespace MiApi.Services.Book
+namespace MiApi.Services.BookService
 {
     public interface IBookService
     {

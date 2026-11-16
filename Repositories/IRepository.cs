@@ -15,6 +15,8 @@ namespace MiApi.Repositories
         void Update(T entity);
         void Delete(T entity);
 
+        Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> filter);
+
         Task SaveChangesAsync();
     }
 }

@@ -3,7 +3,7 @@ using MailKit.Security;
 using MimeKit;
 
 
-namespace MiApi.Services.Email
+namespace MiApi.Services.EmailService
 {
     public class EmailService : IEmailService
     {

@@ -5,9 +5,9 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using MiApi.Dtos;
 using MiApi.Repositories;
-using MiApi.Services.Book;
+using MiApi.Services.BookService;
 
-namespace MiApi.Services.Reservation
+namespace MiApi.Services.ReservationService
 {
     public class ReservationService : IReservationService
     {

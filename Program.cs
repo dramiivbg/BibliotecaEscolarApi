@@ -4,19 +4,25 @@ using Microsoft.EntityFrameworkCore;
 using MiApi.Models;
 using Microsoft.AspNetCore.Identity;
 using MiApi.Repositories;
-using MiApi.Services.Book;
-using MiApi.Services.User;
-using MiApi.Services.Reservation;
-using MiApi.Services.Sms;
-using MiApi.Services.Email;
+using MiApi.Services.BookService;
+using MiApi.Services.UserService;
+using MiApi.Services.ReservationService;
+using MiApi.Services.SmsService;
+using MiApi.Services.EmailService;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using MiApi.Services.Auth;
+using MiApi.Services.AuthService;
 using Microsoft.OpenApi;
 using MiApi.Seeders;
+using MiApi.Services.Auth.Jwt.Models;
+using MiApi.Services.Auth.Jwt.Services;
+using MiApi.Services.AuthService.Jwt.Services;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var jwt = builder.Configuration.GetSection("Jwt").Get<JwtSettings>()!;
 
 // Add services to the container.
 
@@ -76,9 +82,28 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            ValidIssuer = jwt.Issuer,
+            ValidAudience = jwt.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
+            ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 },
+            ClockSkew = TimeSpan.FromSeconds(30),   // por defecto son 5 min
+            RoleClaimType = ClaimTypes.Role,
+            NameClaimType = ClaimTypes.Name
+        };
+
+        // Corte inmediato si el usuario fue deshabilitado o eliminado
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async ctx =>
+            {
+                var userManager = ctx.HttpContext.RequestServices
+                    .GetRequiredService<UserManager<User>>();
+                var userId = ctx.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var user = userId is null ? null : await userManager.FindByIdAsync(userId);
+
+                if (user is null || await userManager.IsLockedOutAsync(user))
+                    ctx.Fail("Usuario no válido.");
+            }
         };
     }); 
 
@@ -91,9 +116,21 @@ builder.Services.AddScoped<IReservationService, ReservationService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
 
-builder.Services.AddCors(o => o.AddPolicy("todo", p =>
-    p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Front", policy => policy
+        .WithOrigins("http://localhost:4200")
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials());
+});
+
+builder.Services.AddOptions<JwtSettings>()
+    .Bind(builder.Configuration.GetSection("Jwt"))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();   // la app no arranca si falta la clave
 
 var app = builder.Build();
 

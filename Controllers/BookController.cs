@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MiApi.Dtos;
 using MiApi.Exceptions;
-using MiApi.Services.Book;
+using MiApi.Services.BookService;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

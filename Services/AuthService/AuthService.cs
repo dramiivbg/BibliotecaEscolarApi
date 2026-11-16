@@ -6,31 +6,52 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 using MiApi.Dtos;
-using MiApi.Services.Email;
-using MiApi.Services.Sms;
+using MiApi.Repositories;
+using MiApi.Services.Auth.Jwt.Models;
+using MiApi.Services.Auth.Jwt.Services;
+using MiApi.Services.AuthService.Jwt.Models;
+using MiApi.Services.EmailService;
+using MiApi.Services.SmsService;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.IdentityModel.Tokens;
+using MiApi.Models;
+using Microsoft.Extensions.Options;
+using Microsoft.VisualBasic;
+using System.Net.WebSockets;
+using MiApi.Data;
+using Microsoft.EntityFrameworkCore;
 
-namespace MiApi.Services.Auth
+namespace MiApi.Services.AuthService
 {
     public class AuthService : IAuthService
     {
-        private readonly UserManager<Models.User> _userManager;
+        private readonly UserManager<User> _userManager;
+
+        private  readonly AppDbContext _context;
+
+        private readonly DbSet<RefreshToken> _dbSet;
 
 
+        private readonly JwtSettings _jwt;
         private readonly IEmailService _emailService;
+
+        private readonly ITokenService _tokenService;
 
         private readonly ISmsService _smsService;
 
         private readonly IConfiguration _configuration;
 
-        public AuthService(UserManager<Models.User> userManager, IEmailService emailService, ISmsService smsService, IConfiguration configuration)
+        public AuthService(UserManager<User> userManager, IEmailService emailService, ISmsService smsService, IConfiguration configuration, ITokenService tokenService, IOptions<JwtSettings> options, AppDbContext context)
         {
             _userManager = userManager;
             _emailService = emailService;
             _smsService = smsService;
             _configuration = configuration;
+            _tokenService = tokenService;
+            _jwt = options.Value;
+            _context = context;
+            _dbSet = _context.Set<RefreshToken>();
         }
 
         public async Task<IdentityResult> ConfirmEmailAsync(string userId, string token)
@@ -64,7 +85,7 @@ namespace MiApi.Services.Auth
             return await _userManager.ConfirmEmailAsync(user, tokenDecoded);
         }
 
-        public async Task<string> LoginAsync(LoginDto loginDto)
+        public async Task<AuthResponse> LoginAsync(LoginDto loginDto, string? ip)
         {
             var user = await _userManager.FindByEmailAsync(loginDto.Email!);
 
@@ -89,35 +110,72 @@ namespace MiApi.Services.Auth
 
             await _userManager.ResetAccessFailedCountAsync(user);
 
-            return await GenerateJwtAsync(user);
+            return await IssueTokensAsync(user, ip);
         }
 
-        private async Task<string> GenerateJwtAsync(Models.User user)
+        private async Task<AuthResponse> IssueTokensAsync(User user, string? ip, RefreshToken? replacing = null)
         {
             var roles = await _userManager.GetRolesAsync(user);
+            var (access, accessExp) = _tokenService.CreateAccessToken(user, roles);
+            var (refresh, refreshHash) = _tokenService.CreateRefreshToken();
 
-            var claims = new List<Claim>
-    {
-        new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-        new(JwtRegisteredClaimNames.Email, user.Email!),
-        new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-        new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-        new(ClaimTypes.Name, user.FullName ?? user.Email!)
-    };
-            claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+            _dbSet.Add(new RefreshToken
+            {
+                UserId = user.Id,
+                TokenHash = refreshHash,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddDays(_jwt.RefreshTokenDays),
+                CreatedByIp = ip
+            });
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            if (replacing is not null)
+            {
+                replacing.RevokedAt = DateTime.UtcNow;
+                replacing.ReplacedByTokenHash = refreshHash;
+            }
 
-            var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Audience"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(int.Parse(_configuration["Jwt:ExpireMinutes"] ?? "60")),
-                signingCredentials: creds);
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            await _context.SaveChangesAsync();
+            return new AuthResponse(access, accessExp, refresh);
         }
+
+        public async Task<AuthResponse> RefreshAsync(string refreshToken, string? ip)
+        {
+            var hash = _tokenService.Hash(refreshToken);
+            var stored = await _dbSet.FirstOrDefaultAsync(t => t.TokenHash == hash)
+                ?? throw new UnauthorizedAccessException("Sesión inválida.");
+
+            // Reutilización de un token ya rotado: posible robo -> cerrar todas las sesiones
+            if (stored.RevokedAt is not null)
+            {
+                await RevokeAllAsync(stored.UserId);
+                throw new UnauthorizedAccessException("Sesión inválida.");
+            }
+
+            if (stored.ExpiresAt <= DateTime.UtcNow)
+                throw new UnauthorizedAccessException("Sesión expirada.");
+
+            var user = await _userManager.FindByIdAsync(stored.UserId);
+            if (user is null || await _userManager.IsLockedOutAsync(user))
+                throw new UnauthorizedAccessException("Sesión inválida.");
+
+            return await IssueTokensAsync(user, ip, replacing: stored);
+        }
+
+        public async Task LogoutAsync(string refreshToken)
+        {
+            var hash = _tokenService.Hash(refreshToken);
+            var stored = await _dbSet.FirstOrDefaultAsync(t => t.TokenHash == hash);
+            if (stored is { RevokedAt: null })
+            {
+                stored.RevokedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        public async Task RevokeAllAsync(string userId) =>
+            await _dbSet
+                .Where(t => t.UserId == userId && t.RevokedAt == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, DateTime.UtcNow));
 
 
         public async Task<string> RegisterAsync(UserDto user)
@@ -158,5 +216,6 @@ namespace MiApi.Services.Auth
 
             return "Registro exitoso. Revisa tu correo para confirmar la cuenta.";
         }
+
     }
 }

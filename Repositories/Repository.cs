@@ -42,5 +42,8 @@ namespace MiApi.Repositories
 
         public async Task SaveChangesAsync() =>
             await _context.SaveChangesAsync();
+
+        public async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> filter) => 
+                await _dbSet.FirstOrDefaultAsync(filter);
     }
 }
