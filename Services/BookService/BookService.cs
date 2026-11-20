@@ -50,7 +50,7 @@ namespace MiApi.Services.BookService
                 return false;
 
             var hasActiveReservations = (await _reservationRepository
-                .GetAllAsync(r => r.BookId == id && !r.IsReturned)).Any();
+                .GetAllAsync(r => r.BookId == id)).Any();
 
             if (hasActiveReservations)
                 throw new ConflictException("No se puede eliminar el libro: tiene reservas activas.");

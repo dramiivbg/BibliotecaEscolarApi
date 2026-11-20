@@ -134,7 +134,7 @@ builder.Services.AddOptions<JwtSettings>()
 
 var app = builder.Build();
 
-app.UseCors("todo");
+app.UseCors("Front");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

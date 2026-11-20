@@ -4,6 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using MiApi.Dtos;
+using MiApi.Models;
 using MiApi.Repositories;
 using MiApi.Services.BookService;
 
@@ -31,7 +32,7 @@ namespace MiApi.Services.ReservationService
                 throw new InvalidOperationException("No hay ejemplares disponibles.");
 
             book.Stock--;
-            var reservationEntity = new Models.Reservation
+            var reservationEntity = new Reservation
             {
                 UserId = reservation.UserId,
                 BookId = reservation.BookId,
@@ -112,6 +113,10 @@ namespace MiApi.Services.ReservationService
             reservationEntity.IsReturned = true;
 
             _reservationRepository.Update(reservationEntity);
+            var book = await _bookRepository.GetByIdAsync(reservationEntity.BookId)
+                ?? throw new NotFoundException("El libro no existe.");
+
+            book.Stock++;
             await _reservationRepository.SaveChangesAsync();
 
             return new ReservationDto

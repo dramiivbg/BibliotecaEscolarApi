@@ -180,7 +180,7 @@ namespace MiApi.Services.AuthService
 
         public async Task<string> RegisterAsync(UserDto user)
         {
-            var newUser = new Models.User
+            var newUser = new User
             {
                 UserName = user.UserName,
                 Email = user.Email,
@@ -206,7 +206,7 @@ namespace MiApi.Services.AuthService
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(newUser);
             var tokenEncoded = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
 
-            var link = $"{_configuration["App:FrontendUrl"]}/confirm-email" +
+            var link = $"{_configuration["App:ApiUrl"]}/api/auth/confirm-email" +
                        $"?userId={Uri.EscapeDataString(newUser.Id)}&token={tokenEncoded}";
 
             await _emailService.SendAsync(

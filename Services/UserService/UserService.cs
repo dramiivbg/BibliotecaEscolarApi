@@ -66,7 +66,13 @@ namespace MiApi.Services.UserService
                 Email = newUser.Email,
                 FullName = newUser.FullName,
                 Address = newUser.Address,
-                Role = user.Role
+                Role = user.Role,
+                EmailConfirmed = newUser.EmailConfirmed,
+                LockoutEnabled = newUser.LockoutEnabled,
+                AccessFailedCount = newUser.AccessFailedCount,
+                LockoutEnd = newUser.LockoutEnd,
+                UserName = newUser.UserName,
+                PhoneNumber = newUser.PhoneNumber
             };
         }
 
@@ -118,7 +124,13 @@ namespace MiApi.Services.UserService
                     Email = u.Email,
                     FullName = u.FullName,
                     Address = u.Address,
-                    Role = roles.Contains("Admin") ? Role.Admin : Role.User
+                    Role = roles.Contains("Admin") ? Role.Admin : Role.User,
+                    EmailConfirmed = u.EmailConfirmed,
+                    LockoutEnabled = u.LockoutEnabled,
+                    AccessFailedCount = u.AccessFailedCount,
+                    LockoutEnd = u.LockoutEnd,
+                    UserName = u.UserName,
+                    PhoneNumber = u.PhoneNumber
                 });
             }
 
@@ -138,7 +150,13 @@ namespace MiApi.Services.UserService
                 Email = user.Email,
                 FullName = user.FullName,
                 Address = user.Address,
-                Role = roles.Contains("Admin") ? Role.Admin : Role.User
+                Role = roles.Contains("Admin") ? Role.Admin : Role.User,
+                EmailConfirmed = user.EmailConfirmed,
+                LockoutEnabled = user.LockoutEnabled,
+                AccessFailedCount = user.AccessFailedCount,
+                LockoutEnd = user.LockoutEnd,
+                UserName = user.UserName,
+                PhoneNumber = user.PhoneNumber
             };
         }
 
@@ -177,7 +195,13 @@ namespace MiApi.Services.UserService
                 Email = existingUser.Email,
                 FullName = existingUser.FullName,
                 Address = existingUser.Address,
-                Role = user.Role
+                Role = user.Role,
+                EmailConfirmed = existingUser.EmailConfirmed,
+                LockoutEnabled = existingUser.LockoutEnabled,
+                AccessFailedCount = existingUser.AccessFailedCount,
+                LockoutEnd = existingUser.LockoutEnd,
+                UserName = existingUser.UserName,
+                PhoneNumber = existingUser.PhoneNumber
             };
         }
     }
